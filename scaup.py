@@ -116,7 +116,8 @@ if len(sys.argv) < 2:
         print "    %s (#%s) %s" % (track.title, track.id, seconds2hmmss(track.duration/1000.0))
 else:
     dir = sys.argv[1]
-    
+    if dir.endswith("/"):
+        dir = dir[:-1]
     print "Processing directory '%s'" % dir
     audiofns = audiofiles(dir)
     artfns = []
@@ -163,8 +164,12 @@ else:
     trackids = map(lambda id: dict(id=id), uploaded_trackids)
 
     # Create the playlist
+    _, base = os.path.split(dir)
+    if not base:
+        base = dir
+    title = base.capitalize()
     playinfo = {
-        "title": dir.capitalize(),
+        "title": title,
         "sharing": "public",
         #"label_name": "Motoom Records",
         "playlist_type": "album",
@@ -173,3 +178,7 @@ else:
     if albumfn:
         playinfo["artwork_data"] = open(os.path.join(dir, albumfn), "rb")
     client.post("/playlists", playlist=playinfo)
+    if albumfn:
+        print "Playlist '%s' with art '%s' created." % (title, albumfn)
+    else:
+        print "Playlist '%s' (without art) created." % (title, albumfn)
