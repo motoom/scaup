@@ -3,6 +3,9 @@
 import sys
 import soundcloud # Get it with: pip install soundcloud   Source: https://github.com/soundcloud/soundcloud-python, docs at https://developers.soundcloud.com/docs/api/reference
 import time
+import glob
+import os
+import itertools
 
 try:
     import credentials
@@ -32,8 +35,48 @@ def seconds2hmmss(x):
     left -= s
     return "%d:%02d:%02d" % (h, m, s)
 
+def audiofiles(dir):
+    """Return a list of all audiofiles in the specified directory."""
+    supported_audio = (".aiff", ".wav", ".flac", ".alac", ".ogg", ".mp2", ".mp3", ".aac", ".amr", ".wma")
+    filenames = []
+    for fullfn in glob.glob(os.path.join(dir, "*")):
+        path, fn = os.path.split(fullfn)
+        base, extension = os.path.splitext(fn)
+        if extension.lower() in supported_audio:
+            filenames.append(fn)
+    return filenames
 
 
+def trackart(dir, fn):
+    """Given a directory and a filename of an audio file, return the correponding track art filename,
+    i.e. a file with the same base, but with a graphics extension."""
+    supported_graphic = (".jpg", ".png")
+    base, _ = os.path.splitext(fn)
+    for fullfn in glob.glob(os.path.join(dir, base + "*")):
+        path, fn = os.path.split(fullfn)
+        base, extension = os.path.splitext(fn)
+        if extension.lower() in supported_graphic:
+            return fn
+
+
+def albumart(dir, audiofiles, artfiles):
+    """Given a directory and lists of audio- and artfiles, return a graphics file that is in the directory,
+    but not belonging to any audio file."""
+    supported_graphic = (".jpg", ".png")
+    filenames = set()
+    for fullfn in glob.glob(os.path.join(dir, "*")):
+        path, fn = os.path.split(fullfn)
+        base, extension = os.path.splitext(fn)
+        if extension.lower() in supported_graphic:
+            filenames.add(fn)
+    for fn in itertools.chain(audiofiles, artfiles):
+        filenames.discard(fn)
+    if len(filenames) == 1:
+        return filenames.pop()
+    else:
+        return None
+
+    
 client = soundcloud.Client(
     client_id=credentials.client_id,
     client_secret=credentials.client_secret,
@@ -73,34 +116,60 @@ if len(sys.argv) < 2:
         print "    %s (#%s) %s" % (track.title, track.id, seconds2hmmss(track.duration/1000.0))
 else:
     dir = sys.argv[1]
-    print dir
     
-    # Upload two tracks
+    print "Processing directory '%s'" % dir
+    audiofns = audiofiles(dir)
+    artfns = []
+    audioartfns = []
+    for audiofn in audiofns:
+        artfn = trackart(dir, audiofn)
+        if artfn:
+            artfns.append(artfn)
+            audioartfns.append((audiofn, artfn))
+            print "Audio '%s' with art '%s'" % (audiofn, artfn)
+        else:
+            audioartfns.append((audiofn, None))
+            print "Audio '%s' without art" % audiofn
+    
+    albumfn = albumart(dir, audiofns, artfns)
+    if albumfn:
+        print "Album art: %s" % albumfn
+    else:
+        print "No album art."
+        
+    # Upload tracks
     uploaded_trackids = []
-
-    for basename in ("gus", "alligator"):
-        print "Uploading %s..." % basename
-        track = client.post("/tracks", track={
+    for audiofn, artfn in audioartfns:
+        if not artfn and albumfn:
+            artfn = albumfn
+        if artfn:
+            print "Uploading '%s' with art '%s'" % (audiofn, artfn)
+        else:
+            print "Uploading '%s' without art" % audiofn
+        basename, _ = os.path.splitext(audiofn)
+        trackinfo = {
             "title": basename.capitalize(),
             "sharing": "public",
-            "license": "cc-by-sa",
-            "label_name": "Motoom Records",
-            "tag_list": "\"musique concrete\"",
-            "genre": "Musique concrete",
-            "artwork_data": open("%s.jpg" % basename, "rb"),   
-            "asset_data": open("%s.aiff" % basename, "rb"),
-            })    
+            #"license": "cc-by-sa",
+            #"label_name": "Motoom Records",
+            #"tag_list": "\"musique concrete\"",
+            #"genre": "Musique concrete",
+            "asset_data": open(os.path.join(dir, audiofn), "rb"),
+            }
+        if artfn:
+            trackinfo["artwork_data"] = open(os.path.join(dir, artfn), "rb")            
+        track = client.post("/tracks", track=trackinfo)    
         uploaded_trackids.append(track.id)
-
     trackids = map(lambda id: dict(id=id), uploaded_trackids)
 
     # Create the playlist
-    client.post("/playlists", playlist={
-        "title": "Stamp %s" % time.time(),
+    playinfo = {
+        "title": dir.capitalize(),
         "sharing": "public",
-        "label_name": "Motoom Records",
+        #"label_name": "Motoom Records",
         "playlist_type": "album",
-        "artwork_data": open("alligatorbus.jpg", "rb"),   
         "tracks": trackids,
-        })
-
+        }
+    if albumfn:
+        playinfo["artwork_data"] = open(os.path.join(dir, albumfn), "rb")
+    client.post("/playlists", playlist=playinfo)
