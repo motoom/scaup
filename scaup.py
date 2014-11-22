@@ -149,7 +149,7 @@ else:
             print "Uploading '%s' without art" % audiofn
         basename, _ = os.path.splitext(audiofn)
         trackinfo = {
-            "title": basename.capitalize(),
+            "title": basename,
             "sharing": "public",
             #"license": "cc-by-sa",
             #"label_name": "Motoom Records",
@@ -167,7 +167,7 @@ else:
     _, base = os.path.split(dir)
     if not base:
         base = dir
-    title = base.capitalize()
+    title = base
     playinfo = {
         "title": title,
         "sharing": "public",
