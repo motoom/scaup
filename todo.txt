@@ -1,0 +1,2 @@
+- scaup should accept multiple directories as arguments, and process them all
+
