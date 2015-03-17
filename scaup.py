@@ -10,17 +10,17 @@ import itertools
 try:
     import credentials
 except ImportError:
-    print """You haven't supplied your credentials yet.
+    print """You haven't supplied your SoundCloud credentials yet. The program 'scaup.py' needs these.
 If you haven't done so, first visit http://soundcloud.com/you/apps/ and register a new application.
-Then, create a file 'credentials.py' with the following lines, filling in the information SoundCloud gave you,
-and also your SoundCloud username and password:
+Then, create a file 'credentials.py' (in the same directory as 'scaup.py') with the following lines,
+filling in the information SoundCloud gave you, and also your SoundCloud username and password:
 
 client_id = "287878237"
 client_secret = "82378233"
 username = "joe@example.com"
 password = "secret"
 
-...and rerun scaup."""
+...and rerun your program."""
     sys.exit()
 
 
@@ -76,25 +76,26 @@ def albumart(dir, audiofiles, artfiles):
     else:
         return None
 
+
+def login():    
+    client = soundcloud.Client(
+        client_id=credentials.client_id,
+        client_secret=credentials.client_secret,
+        username=credentials.username,
+        password=credentials.password
+        )
+    me = client.get('/me')
+    return client, me
     
-client = soundcloud.Client(
-    client_id=credentials.client_id,
-    client_secret=credentials.client_secret,
-    username=credentials.username,
-    password=credentials.password
-    )
-me = client.get('/me')
 
 def dumpfields(x):
     fields = x.fields()
     for k in sorted(fields):
         print k, fields[k]
     print
-        
-print "Logged in as %s (#%s)\n" % (me.full_name, me.id)
-
-
-if len(sys.argv) < 2:
+    
+    
+def dumptracks():
     tracks_in_playlists = set()
 
     playlists = client.get("/playlists", user_id=me.id)
@@ -114,11 +115,13 @@ if len(sys.argv) < 2:
             headerprinted = True
             print "Tracks which are not in any of your playlists:\n"
         print "    %s (#%s) %s" % (track.title, track.id, seconds2hmmss(track.duration/1000.0))
-else:
-    dir = sys.argv[1]
+    
+
+def upload(dir, verbose=False):
     if dir.endswith("/"):
         dir = dir[:-1]
-    print "Processing directory '%s'" % dir
+    if verbose:
+        print "Processing directory '%s'" % dir
     audiofns = audiofiles(dir)
     artfns = []
     audioartfns = []
@@ -127,26 +130,30 @@ else:
         if artfn:
             artfns.append(artfn)
             audioartfns.append((audiofn, artfn))
-            print "Audio '%s' with art '%s'" % (audiofn, artfn)
+            if verbose:
+                print "Audio '%s' with art '%s'" % (audiofn, artfn)
         else:
             audioartfns.append((audiofn, None))
-            print "Audio '%s' without art" % audiofn
-    
+            if verbose:
+                print "Audio '%s' without art" % audiofn
+
     albumfn = albumart(dir, audiofns, artfns)
-    if albumfn:
-        print "Album art: %s" % albumfn
-    else:
-        print "No album art."
-        
+    if verbose:
+        if albumfn:
+            print "Album art: %s" % albumfn
+        else:
+            print "No album art."
+    
     # Upload tracks
     uploaded_trackids = []
     for audiofn, artfn in audioartfns:
         if not artfn and albumfn:
             artfn = albumfn
-        if artfn:
-            print "Uploading '%s' with art '%s'" % (audiofn, artfn)
-        else:
-            print "Uploading '%s' without art" % audiofn
+        if verbose:
+            if artfn:
+                print "Uploading '%s' with art '%s'" % (audiofn, artfn)
+            else:
+                print "Uploading '%s' without art" % audiofn
         basename, _ = os.path.splitext(audiofn)
         trackinfo = {
             "title": basename,
@@ -178,7 +185,19 @@ else:
     if albumfn:
         playinfo["artwork_data"] = open(os.path.join(dir, albumfn), "rb")
     client.post("/playlists", playlist=playinfo)
-    if albumfn:
-        print "Playlist '%s' with art '%s' created." % (title, albumfn)
+    if verbose:
+        if albumfn:
+            print "Playlist '%s' with art '%s' created." % (title, albumfn)
+        else:
+            print "Playlist '%s' (without art) created." % (title)
+
+
+if __name__ == "__main__":
+    client, me = login()        
+    print "Logged in as %s (#%s)\n" % (me.full_name, me.id)
+
+    if len(sys.argv) < 2:
+        dumptracks()
     else:
-        print "Playlist '%s' (without art) created." % (title, albumfn)
+        dir = sys.argv[1]
+        upload(dir, verbose=True)
