@@ -95,7 +95,7 @@ def dumpfields(x):
     print
     
     
-def dumptracks():
+def dumptracks(client):
     tracks_in_playlists = set()
 
     playlists = client.get("/playlists", user_id=me.id)
@@ -117,7 +117,7 @@ def dumptracks():
         print "    %s (#%s) %s" % (track.title, track.id, seconds2hmmss(track.duration/1000.0))
     
 
-def upload(dir, verbose=False):
+def upload(client, dir, title=None, verbose=False):
     if dir.endswith("/"):
         dir = dir[:-1]
     if verbose:
@@ -156,7 +156,7 @@ def upload(dir, verbose=False):
                 print "Uploading '%s' without art" % audiofn
         basename, _ = os.path.splitext(audiofn)
         trackinfo = {
-            "title": basename,
+            "title": title or basename,
             "sharing": "public",
             #"license": "cc-by-sa",
             #"label_name": "Motoom Records",
@@ -197,7 +197,7 @@ if __name__ == "__main__":
     print "Logged in as %s (#%s)\n" % (me.full_name, me.id)
 
     if len(sys.argv) < 2:
-        dumptracks()
+        dumptracks(client)
     else:
         dir = sys.argv[1]
-        upload(dir, verbose=True)
+        upload(client, dir, verbose=True)
