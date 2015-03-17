@@ -174,9 +174,8 @@ def upload(client, dir, title=None, verbose=False):
     _, base = os.path.split(dir)
     if not base:
         base = dir
-    title = base
     playinfo = {
-        "title": title,
+        "title": title or base,
         "sharing": "public",
         #"label_name": "Motoom Records",
         "playlist_type": "album",
