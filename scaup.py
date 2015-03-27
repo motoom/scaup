@@ -149,14 +149,15 @@ def upload(client, dir, title=None, verbose=False):
     for audiofn, artfn in audioartfns:
         if not artfn and albumfn:
             artfn = albumfn
+        basename, _ = os.path.splitext(audiofn)
+        tracktitle = basename
         if verbose:
             if artfn:
-                print "Uploading '%s' with art '%s'" % (audiofn, artfn)
+                print "Uploading '%s' (with art '%s') as '%s'" % (audiofn, artfn, tracktitle)
             else:
-                print "Uploading '%s' without art" % audiofn
-        basename, _ = os.path.splitext(audiofn)
+                print "Uploading '%s' (without art) as '%s'" % (audiofn, tracktitle)
         trackinfo = {
-            "title": title or basename,
+            "title": tracktitle,
             "sharing": "public",
             #"license": "cc-by-sa",
             #"label_name": "Motoom Records",
@@ -172,10 +173,14 @@ def upload(client, dir, title=None, verbose=False):
 
     # Create the playlist
     _, base = os.path.split(dir)
-    if not base:
-        base = dir
+    if title:
+        playlisttitle = title
+    else:
+        playlisttitle = base
+    if not playlisttitle:
+        playlisttitle = dir
     playinfo = {
-        "title": title or base,
+        "title": playlisttitle,
         "sharing": "public",
         #"label_name": "Motoom Records",
         "playlist_type": "album",
@@ -186,9 +191,9 @@ def upload(client, dir, title=None, verbose=False):
     client.post("/playlists", playlist=playinfo)
     if verbose:
         if albumfn:
-            print "Playlist '%s' with art '%s' created." % (title, albumfn)
+            print "Playlist '%s' with art '%s' created." % (playlisttitle, albumfn)
         else:
-            print "Playlist '%s' (without art) created." % (title)
+            print "Playlist '%s' (without art) created." % (playlisttitle)
 
 
 if __name__ == "__main__":
@@ -199,4 +204,4 @@ if __name__ == "__main__":
         dumptracks(client)
     else:
         dir = sys.argv[1]
-        upload(client, dir, verbose=True)
+        upload(client, dir, verbose=True, title="ScaupTest")
